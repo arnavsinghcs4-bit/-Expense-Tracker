@@ -1,7 +1,30 @@
-import { useState } from 'react';
-import { CATEGORIES, Category, Expense, Currency, CURRENCIES } from '../types';
+import { useState, useEffect } from 'react';
+import { CATEGORIES, Category, Expense, CATEGORY_COLORS, getCurrencyInfo } from '../types';
 import { addExpense, updateExpense, getCurrency } from '../storage';
 import { format } from 'date-fns';
+import {
+  Utensils, Car, ShoppingBag, Film, Home, Heart, Plane, GraduationCap, MoreHorizontal,
+  Calendar, Tag, X
+} from 'lucide-react';
+import { Select, createCategoryIcon } from './Select';
+
+const categoryIcons: Record<Category, React.ElementType> = {
+  'Food & Dining': Utensils,
+  'Transportation': Car,
+  'Shopping': ShoppingBag,
+  'Entertainment': Film,
+  'Bills & Utilities': Home,
+  'Healthcare': Heart,
+  'Travel': Plane,
+  'Education': GraduationCap,
+  'Other': MoreHorizontal,
+};
+
+const categoryOptions = CATEGORIES.map(cat => ({
+  value: cat as Category,
+  label: cat,
+  icon: createCategoryIcon(categoryIcons[cat as Category] || MoreHorizontal, CATEGORY_COLORS[cat as Category]),
+}));
 
 interface ExpenseFormProps {
   defaultDate?: string;
@@ -11,13 +34,14 @@ interface ExpenseFormProps {
 
 export function ExpenseForm({ defaultDate, onSaved, editingExpense }: ExpenseFormProps) {
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState<Currency>(() => editingExpense?.currency || getCurrency());
   const [category, setCategory] = useState<Category>('Food & Dining');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(defaultDate || format(new Date(), 'yyyy-MM-dd'));
   const [error, setError] = useState('');
 
   const isEditing = !!editingExpense;
+  const currency = getCurrency();
+  const currencyInfo = getCurrencyInfo(currency);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,91 +75,89 @@ export function ExpenseForm({ defaultDate, onSaved, editingExpense }: ExpenseFor
     setDescription('');
     setDate(defaultDate || format(new Date(), 'yyyy-MM-dd'));
     setCategory('Food & Dining');
-    setCurrency(getCurrency());
     onSaved();
   };
 
-  if (editingExpense && !amount) {
-    setAmount(editingExpense.amount.toString());
-    setCurrency(editingExpense.currency);
-    setCategory(editingExpense.category);
-    setDescription(editingExpense.description);
-    setDate(editingExpense.date);
-  }
+  useEffect(() => {
+    if (editingExpense && !amount) {
+      setAmount(editingExpense.amount.toString());
+      setCategory(editingExpense.category);
+      setDescription(editingExpense.description);
+      setDate(editingExpense.date);
+    }
+  }, [editingExpense]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+    <div className="card-glass p-6 animate-page-enter">
+      <h2 className="heading-3 mb-5">
         {isEditing ? 'Edit Expense' : 'Add Expense'}
       </h2>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">
+        <div className="mb-5 p-3 rounded-lg bg-negative/10 border border-negative/30 text-negative body-sm animate-slide-up focus-ring" role="alert" tabIndex={0}>
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="0.00"
-              required
-            />
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Amount with currency symbol prefix */}
+          <div className="relative">
+            <label className="label">Amount *</label>
+            <div className="relative">
+              <span className="input-prefix">{currencyInfo.symbol}</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="input pl-12 pr-4"
+                placeholder="0.00"
+                required
+                autoFocus
+                inputMode="decimal"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency *</label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value as Currency)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              {CURRENCIES.map(c => (
-                <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              required
-            />
+          {/* Date with calendar icon inside */}
+          <div className="relative">
+            <label className="label">Date *</label>
+            <div className="relative">
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="input pr-12"
+                required
+              />
+              <Calendar className="input-suffix" strokeWidth={2} aria-hidden="true" />
+            </div>
           </div>
         </div>
 
+        {/* Category - Custom Select Dropdown (in-flow) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
-          <select
+          <label className="label">Category *</label>
+          <Select<Category>
             value={category}
-            onChange={(e) => setCategory(e.target.value as Category)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            {CATEGORIES.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+            onChange={setCategory}
+            options={categoryOptions}
+            placeholder="Select category"
+            prefix={<Tag className="input-icon" strokeWidth={2} />}
+            inFlow
+            ariaLabel="Select expense category"
+          />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description *</label>
+          <label className="label">Description *</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="input focus-ring"
             placeholder="e.g., Lunch with friends"
             required
           />
@@ -144,16 +166,17 @@ export function ExpenseForm({ defaultDate, onSaved, editingExpense }: ExpenseFor
         <div className="flex gap-3 pt-2">
           <button
             type="submit"
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="btn btn-primary flex-1 btn-shimmer focus-ring"
           >
-            {isEditing ? 'Update' : 'Add Expense'}
+            {isEditing ? 'Update Expense' : 'Add Expense'}
           </button>
           {isEditing && (
             <button
               type="button"
               onClick={() => onSaved()}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="btn btn-secondary focus-ring"
             >
+              <X className="w-4 h-4 mr-2" strokeWidth={2} />
               Cancel
             </button>
           )}

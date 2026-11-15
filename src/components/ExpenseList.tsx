@@ -3,6 +3,19 @@ import { deleteExpense, getExpensesByMonth } from '../storage';
 import { format, parseISO } from 'date-fns';
 import { useState } from 'react';
 import { ExpenseForm } from './ExpenseForm';
+import { Edit, Trash2, Receipt, Calendar, Utensils, Car, ShoppingBag, Film, Home, Heart, Plane, GraduationCap, MoreHorizontal } from 'lucide-react';
+
+const categoryIcons: Record<Category, React.ElementType> = {
+  'Food & Dining': Utensils,
+  'Transportation': Car,
+  'Shopping': ShoppingBag,
+  'Entertainment': Film,
+  'Bills & Utilities': Home,
+  'Healthcare': Heart,
+  'Travel': Plane,
+  'Education': GraduationCap,
+  'Other': MoreHorizontal,
+};
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -31,9 +44,14 @@ export function ExpenseList({ expenses, onChange, filterMonth }: ExpenseListProp
 
   if (filteredExpenses.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
-        <div className="text-4xl mb-3">📭</div>
-        <p className="text-gray-500 dark:text-gray-400">No expenses yet. Add your first expense above!</p>
+      <div className="card-glass p-12 text-center animate-page-enter">
+        <div className="category-pill w-16 h-16 mx-auto mb-4">
+          <Receipt className="w-8 h-8" strokeWidth={2} />
+        </div>
+        <h3 className="heading-2 mb-2">No expenses yet</h3>
+        <p className="body text-secondary max-w-md mx-auto">
+          Add your first expense using the form above to start tracking your spending.
+        </p>
       </div>
     );
   }
@@ -41,29 +59,31 @@ export function ExpenseList({ expenses, onChange, filterMonth }: ExpenseListProp
   const handleDelete = (id: string) => {
     deleteExpense(id);
     onChange();
+    setConfirmDeleteId(null);
   };
 
-  
   return (
-    <div className="space-y-4">
-      {sortedDates.map(date => {
+    <div className="space-y-5 animate-page-enter">
+      {sortedDates.map((date, dateIndex) => {
         const dayExpenses = groupedExpenses[date];
         const dayTotal = dayExpenses.reduce((sum, e) => sum + e.amount, 0);
-        // Use the first expense's currency for the day total, or default
         const dayCurrency = dayExpenses[0]?.currency || 'USD';
         const dayCurrencyInfo = getCurrencyInfo(dayCurrency);
 
         return (
-          <div key={date} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
-              <span className="font-medium text-gray-900 dark:text-white">
-                {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
-              </span>
-              <span className="font-semibold text-gray-900 dark:text-white">{dayCurrencyInfo.symbol}{dayTotal.toFixed(2)}</span>
+          <div key={date} className="card-glass overflow-hidden animate-slide-up" style={{ animationDelay: `${dateIndex * 50}ms` }}>
+            <div className="px-6 py-4 bg-secondary/30 border-b border-glass flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-muted" strokeWidth={2} aria-hidden="true" />
+                <span className="font-medium text-primary">
+                  {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
+                </span>
+              </div>
+              <span className="font-semibold text-primary mono">{dayCurrencyInfo.symbol}{dayTotal.toFixed(2)}</span>
             </div>
 
-            <div className="divide-y divide-gray-100 dark:divide-gray-700">
-              {dayExpenses.map(expense => (
+            <div className="divide-y divide-primary/30">
+              {dayExpenses.map((expense, expenseIndex) => (
                 <ExpenseItem
                   key={expense.id}
                   expense={expense}
@@ -71,6 +91,7 @@ export function ExpenseList({ expenses, onChange, filterMonth }: ExpenseListProp
                   onEdit={() => setEditingId(expense.id)}
                   onSave={onChange}
                   onDeleteConfirm={() => setConfirmDeleteId(expense.id)}
+                  index={expenseIndex}
                 />
               ))}
             </div>
@@ -79,21 +100,27 @@ export function ExpenseList({ expenses, onChange, filterMonth }: ExpenseListProp
       })}
 
       {confirmDeleteId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete expense?</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">This action cannot be undone.</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+          <div className="card-glass p-6 max-w-md w-full mx-4 animate-scale-in focus-ring" tabIndex={0}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="category-pill w-10 h-10" style={{ backgroundColor: 'var(--negative)' }}>
+                <Trash2 className="w-5 h-5" strokeWidth={2} />
+              </div>
+              <h3 id="delete-confirm-title" className="heading-3">Delete expense?</h3>
+            </div>
+            <p className="body text-secondary mb-6">This action cannot be undone. The expense will be permanently removed.</p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="btn btn-secondary focus-ring"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDelete(confirmDeleteId)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="btn btn-danger focus-ring"
               >
+                <Trash2 className="w-4 h-4 mr-2" strokeWidth={2} />
                 Delete
               </button>
             </div>
@@ -109,16 +136,20 @@ function ExpenseItem({
   isEditing,
   onEdit,
   onSave,
-  onDeleteConfirm
+  onDeleteConfirm,
+  index
 }: {
   expense: Expense;
   isEditing: boolean;
   onEdit: () => void;
   onSave: () => void;
   onDeleteConfirm: () => void;
+  index: number;
 }) {
-  const color = CATEGORY_COLORS[expense.category as Category] || '#6b7280';
+  const category = expense.category as Category;
+  const color = CATEGORY_COLORS[category] || '#6b7280';
   const currencyInfo = getCurrencyInfo(expense.currency);
+  const Icon = categoryIcons[category] || MoreHorizontal;
 
   if (isEditing) {
     return (
@@ -130,35 +161,33 @@ function ExpenseItem({
   }
 
   return (
-    <div className="px-4 py-3 flex items-center gap-3">
-      <div
-        className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-medium"
-        style={{ backgroundColor: color }}
-      >
-        {expense.category.charAt(0)}
+    <div className="row-interactive px-6 py-4 flex items-center gap-4 focus-ring" tabIndex={0} style={{ animationDelay: `${index * 30}ms` }}>
+      <div className="category-pill relative flex-shrink-0" style={{ backgroundColor: color + '20' }}>
+        <div className="absolute inset-0 bg-accent-gradient-radial opacity-30" />
+        <Icon className="w-5 h-5 relative" strokeWidth={2.5} />
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-gray-900 dark:text-white truncate">{expense.description}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{expense.category}</p>
+        <p className="font-medium text-primary truncate">{expense.description}</p>
+        <p className="caption text-muted capitalize">{expense.category}</p>
       </div>
 
-      <span className="font-semibold text-gray-900 dark:text-white">{currencyInfo.symbol}{expense.amount.toFixed(2)}</span>
+      <span className="font-semibold text-primary mono flex-shrink-0">{currencyInfo.symbol}{expense.amount.toFixed(2)}</span>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <button
           onClick={onEdit}
-          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          aria-label="Edit"
+          className="btn-icon btn-icon-interactive focus-ring p-2 text-muted hover:text-primary hover:bg-hover rounded-lg"
+          aria-label="Edit expense"
         >
-          ✏️
+          <Edit className="w-4 h-4" strokeWidth={2} />
         </button>
         <button
           onClick={onDeleteConfirm}
-          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-          aria-label="Delete"
+          className="btn-icon btn-icon-interactive focus-ring p-2 text-muted hover:text-negative hover:bg-negative/10 rounded-lg"
+          aria-label="Delete expense"
         >
-          🗑️
+          <Trash2 className="w-4 h-4" strokeWidth={2} />
         </button>
       </div>
     </div>

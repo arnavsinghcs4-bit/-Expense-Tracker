@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { getTheme, setTheme, Theme, getEffectiveTheme } from '../storage';
+import {
+  LayoutDashboard,
+  CreditCard,
+  BarChart3,
+  Target,
+  RefreshCw,
+} from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,6 +18,14 @@ interface LayoutProps {
   onTabChange: (tab: string) => void;
   primaryAction?: React.ReactNode;
 }
+
+const bottomNavItems = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'expenses', label: 'Expenses', icon: CreditCard },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'budgets', label: 'Budgets', icon: Target },
+  { id: 'recurring', label: 'Recurring', icon: RefreshCw },
+] as const;
 
 export function Layout({
   children,
@@ -91,9 +106,31 @@ export function Layout({
 
         {/* Main content */}
         <main className="main" role="main" tabIndex={-1}>
-          {children}
+          <div className="animate-page-enter">
+            {children}
+          </div>
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="bottom-nav" aria-label="Bottom navigation">
+        {bottomNavItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onTabChange(item.id)}
+              className={`bottom-nav-item ${isActive ? 'active' : ''}`}
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={item.label}
+            >
+              <Icon strokeWidth={2} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

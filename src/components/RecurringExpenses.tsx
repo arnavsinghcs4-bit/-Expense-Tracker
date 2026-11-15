@@ -1,11 +1,29 @@
-import { useState } from 'react';
-import { CATEGORIES, Category, RecurringExpense, RecurrencePattern, RecurrenceFrequency, RECURRENCE_LABELS, CATEGORY_COLORS, Currency, CURRENCIES, getCurrencyInfo } from '../types';
+import { useState, useEffect } from 'react';
+import { CATEGORIES, Category, RecurringExpense, RecurrencePattern, RecurrenceFrequency, RECURRENCE_LABELS, CATEGORY_COLORS, getCurrencyInfo } from '../types';
 import { getRecurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, getActiveRecurringExpenses, generateRecurringExpenseInstances, getCurrency } from '../storage';
 import { format, parseISO } from 'date-fns';
+import { RefreshCw, Edit, Trash2, ToggleRight, ToggleLeft, Plus, X, Calendar, Tag, Repeat } from 'lucide-react';
+import { Select, createCategoryIcon } from './Select';
 
-interface RecurringExpensesProps {
-  onChange: () => void;
-}
+import { Utensils, Car, ShoppingBag, Film, Home, Heart, Plane, GraduationCap, MoreHorizontal } from 'lucide-react';
+
+const categoryIcons: Record<Category, React.ElementType> = {
+  'Food & Dining': Utensils,
+  'Transportation': Car,
+  'Shopping': ShoppingBag,
+  'Entertainment': Film,
+  'Bills & Utilities': Home,
+  'Healthcare': Heart,
+  'Travel': Plane,
+  'Education': GraduationCap,
+  'Other': MoreHorizontal,
+};
+
+const categoryOptions = CATEGORIES.map(cat => ({
+  value: cat as Category,
+  label: cat,
+  icon: createCategoryIcon(categoryIcons[cat as Category] || MoreHorizontal, CATEGORY_COLORS[cat as Category]),
+}));
 
 function getPatternDescription(pattern: RecurrencePattern): string {
   const freqLabel = RECURRENCE_LABELS[pattern.frequency];
@@ -32,6 +50,10 @@ function getPatternDescription(pattern: RecurrencePattern): string {
   return desc;
 }
 
+interface RecurringExpensesProps {
+  onChange: () => void;
+}
+
 export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -39,7 +61,6 @@ export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
 
   // Form state
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState<Currency>(() => getCurrency());
   const [category, setCategory] = useState<Category>('Food & Dining');
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly');
@@ -55,6 +76,10 @@ export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
 
   const isEditing = !!editingId;
   const editingExpense = editingId ? recurringExpenses.find(e => e.id === editingId) : null;
+
+  // Use global currency
+  const currency = getCurrency();
+  const currencyInfo = getCurrencyInfo(currency);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +128,6 @@ export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
 
     setEditingId(id);
     setAmount(exp.amount.toString());
-    setCurrency(exp.currency);
     setCategory(exp.category);
     setDescription(exp.description);
     setFrequency(exp.pattern.frequency);
@@ -141,111 +165,116 @@ export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
     setStartDate(format(new Date(), 'yyyy-MM-dd'));
     setEndDate('');
     setOccurrences('');
-    setCurrency(getCurrency());
   };
 
-  if (editingExpense && !amount) {
-    setAmount(editingExpense.amount.toString());
-    setCurrency(editingExpense.currency);
-    setCategory(editingExpense.category);
-    setDescription(editingExpense.description);
-    setFrequency(editingExpense.pattern.frequency);
-    setInterval(editingExpense.pattern.interval);
-    setStartDate(editingExpense.pattern.startDate);
-    setEndDate(editingExpense.pattern.endDate || '');
-    setOccurrences(editingExpense.pattern.occurrences?.toString() || '');
-  }
+  useEffect(() => {
+    if (editingExpense && !amount) {
+      setAmount(editingExpense.amount.toString());
+      setCategory(editingExpense.category);
+      setDescription(editingExpense.description);
+      setFrequency(editingExpense.pattern.frequency);
+      setInterval(editingExpense.pattern.interval);
+      setStartDate(editingExpense.pattern.startDate);
+      setEndDate(editingExpense.pattern.endDate || '');
+      setOccurrences(editingExpense.pattern.occurrences?.toString() || '');
+    }
+  }, [editingExpense]);
 
+  
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-page-enter">
       {/* Add/Edit Form */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="card-glass p-6 stagger-1">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="heading-3">
             {isEditing ? 'Edit Recurring Expense' : 'Add Recurring Expense'}
           </h2>
           {!isEditing && (
             <button
               onClick={() => setShowForm(!showForm)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                showForm
-                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
+              className={`btn btn-shimmer focus-ring ${showForm ? 'btn-secondary' : 'btn-primary'}`}
             >
-              {showForm ? 'Cancel' : '+ Add Recurring Expense'}
+              {showForm ? (
+                <>
+                  <X className="w-4 h-4 mr-2" strokeWidth={2} />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" strokeWidth={2} />
+                  Add Recurring Expense
+                </>
+              )}
             </button>
           )}
         </div>
 
-        {showForm || isEditing ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
+        {(showForm || isEditing) && (
+          <form onSubmit={handleSubmit} className="space-y-5 animate-slide-down">
             {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">
+              <div className="p-3 rounded-lg bg-negative/10 border border-negative/30 text-negative body-sm animate-slide-up focus-ring" role="alert" tabIndex={0}>
                 {error}
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="0.00"
-                  required
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Amount with currency symbol prefix */}
+              <div className="relative">
+                <label className="label">Amount *</label>
+                <div className="relative">
+                  <span className="input-prefix">{currencyInfo.symbol}</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="input pl-12 pr-4 focus-ring"
+                    placeholder="0.00"
+                    required
+                    autoFocus
+                    inputMode="decimal"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency *</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value as Currency)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  {CURRENCIES.map(c => (
-                    <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date *</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  required
-                />
+              {/* Start Date with calendar icon inside */}
+              <div className="relative">
+                <label className="label">Start Date *</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="input pr-12 focus-ring"
+                    required
+                  />
+                  <Calendar className="input-suffix" strokeWidth={2} aria-hidden="true" />
+                </div>
               </div>
             </div>
 
+            {/* Category - Custom Select Dropdown (in-flow) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
-              <select
+              <label className="label">Category *</label>
+              <Select<Category>
                 value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+                onChange={setCategory}
+                options={categoryOptions}
+                placeholder="Select category"
+                prefix={<Tag className="input-icon" strokeWidth={2} />}
+                inFlow
+                ariaLabel="Select expense category"
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description *</label>
+              <label className="label">Description *</label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="input focus-ring"
                 placeholder="e.g., Netflix subscription"
                 required
               />
@@ -253,11 +282,11 @@ export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Frequency *</label>
+                <label className="label">Frequency *</label>
                 <select
                   value={frequency}
                   onChange={(e) => setFrequency(e.target.value as RecurrenceFrequency)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="select focus-ring"
                 >
                   {(Object.keys(RECURRENCE_LABELS) as RecurrenceFrequency[]).map(freq => (
                     <option key={freq} value={freq}>{RECURRENCE_LABELS[freq]}</option>
@@ -266,36 +295,39 @@ export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Interval</label>
+                <label className="label">Interval</label>
                 <input
                   type="number"
                   min="1"
                   max="52"
                   value={interval}
                   onChange={(e) => setInterval(parseInt(e.target.value) || 1)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="input focus-ring"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date (optional)</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
+              <div className="relative">
+                <label className="label">End Date (optional)</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="input pr-12 focus-ring"
+                  />
+                  <Calendar className="input-suffix" strokeWidth={2} aria-hidden="true" />
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Occurrences (optional)</label>
+              <label className="label">Max Occurrences (optional)</label>
               <input
                 type="number"
                 min="1"
                 value={occurrences}
                 onChange={(e) => setOccurrences(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="input focus-ring"
                 placeholder="Leave empty for unlimited"
               />
             </div>
@@ -303,51 +335,54 @@ export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="btn btn-primary btn-shimmer flex-1 focus-ring"
               >
-                {isEditing ? 'Update' : 'Add Recurring Expense'}
+                {isEditing ? 'Update Recurring Expense' : 'Add Recurring Expense'}
               </button>
               {isEditing && (
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="btn btn-secondary focus-ring"
                 >
+                  <X className="w-4 h-4 mr-2" strokeWidth={2} />
                   Cancel
                 </button>
               )}
             </div>
           </form>
-        ) : null}
+        )}
       </div>
 
       {/* Generate Now Button */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+      <div className="card-glass p-6 stagger-2">
         <button
           onClick={handleGenerateNow}
-          className="w-full px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+          className="btn btn-primary btn-shimmer w-full py-4 focus-ring"
         >
-          🔄 Generate Due Expenses Now
+          <Repeat className="w-5 h-5 mr-2" strokeWidth={2} />
+          <span>Generate Due Expenses Now</span>
         </button>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">
+        <p className="body-sm text-secondary mt-3 text-center">
           Checks all active recurring expenses and creates expense entries for any that are due.
         </p>
       </div>
 
       {/* Active Recurring Expenses */}
       {activeExpenses.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Active Recurring Expenses ({activeExpenses.length})</h3>
+        <div className="card-glass overflow-hidden stagger-3">
+          <div className="px-6 py-4 border-b border-glass flex items-center justify-between">
+            <h3 className="heading-4">Active Recurring Expenses <span className="text-muted font-normal">({activeExpenses.length})</span></h3>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {activeExpenses.map(expense => (
+          <div className="divide-y divide-primary/30">
+            {activeExpenses.map((expense, index) => (
               <RecurringExpenseItem
                 key={expense.id}
                 expense={expense}
                 onEdit={handleEdit}
                 onToggle={handleToggleActive}
                 onDeleteConfirm={() => setConfirmDeleteId(expense.id)}
+                index={index}
               />
             ))}
           </div>
@@ -356,18 +391,19 @@ export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
 
       {/* Inactive Recurring Expenses */}
       {inactiveExpenses.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Inactive ({inactiveExpenses.length})</h3>
+        <div className="card-glass overflow-hidden stagger-4">
+          <div className="px-6 py-4 border-b border-glass flex items-center justify-between">
+            <h3 className="heading-4">Inactive <span className="text-muted font-normal">({inactiveExpenses.length})</span></h3>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {inactiveExpenses.map(expense => (
+          <div className="divide-y divide-primary/30">
+            {inactiveExpenses.map((expense, index) => (
               <RecurringExpenseItem
                 key={expense.id}
                 expense={expense}
                 onEdit={handleEdit}
                 onToggle={handleToggleActive}
                 onDeleteConfirm={() => setConfirmDeleteId(expense.id)}
+                index={index}
               />
             ))}
           </div>
@@ -376,29 +412,47 @@ export function RecurringExpenses({ onChange }: RecurringExpensesProps) {
 
       {/* Empty State */}
       {recurringExpenses.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
-          <div className="text-4xl mb-3">𔄠</div>
-          <p className="text-gray-500 dark:text-gray-400">No recurring expenses yet. Add your first one above!</p>
+        <div className="card-glass p-12 text-center stagger-1 animate-page-enter">
+          <div className="category-pill w-16 h-16 mx-auto mb-4" style={{ backgroundColor: 'var(--accent-muted)' }}>
+            <RefreshCw className="w-8 h-8" strokeWidth={1.5} style={{ color: 'var(--accent-primary)' }} />
+          </div>
+          <h3 className="heading-2 mb-2">No recurring expenses yet</h3>
+          <p className="body text-secondary max-w-md mx-auto mb-6">
+            Add your first recurring expense above to track subscriptions, bills, and regular payments automatically.
+          </p>
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn btn-primary btn-shimmer focus-ring"
+          >
+            <Plus className="w-4 h-4 mr-2" strokeWidth={2} />
+            Add Recurring Expense
+          </button>
         </div>
       )}
 
       {/* Delete Confirmation Modal */}
       {confirmDeleteId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete recurring expense?</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">This will stop future expenses from being generated. Already generated expenses will not be affected.</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="delete-recurring-title">
+          <div className="card-glass p-6 max-w-md w-full mx-4 animate-scale-in focus-ring" tabIndex={0}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="category-pill w-10 h-10" style={{ backgroundColor: 'var(--negative)' }}>
+                <Trash2 className="w-5 h-5" strokeWidth={2} />
+              </div>
+              <h3 id="delete-recurring-title" className="heading-3">Delete recurring expense?</h3>
+            </div>
+            <p className="body text-secondary mb-6">This will stop future expenses from being generated. Already generated expenses will not be affected.</p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="btn btn-secondary focus-ring"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDelete(confirmDeleteId)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="btn btn-danger focus-ring"
               >
+                <Trash2 className="w-4 h-4 mr-2" strokeWidth={2} />
                 Delete
               </button>
             </div>
@@ -413,64 +467,83 @@ function RecurringExpenseItem({
   expense,
   onEdit,
   onToggle,
-  onDeleteConfirm
+  onDeleteConfirm,
+  index
 }: {
   expense: RecurringExpense;
   onEdit: (id: string) => void;
   onToggle: (expense: RecurringExpense) => void;
   onDeleteConfirm: () => void;
+  index: number;
 }) {
   const nextDue = format(parseISO(expense.nextDueDate), 'MMM d, yyyy');
   const patternDesc = getPatternDescription(expense.pattern);
   const currencyInfo = getCurrencyInfo(expense.currency);
+  const category = expense.category as Category;
+  const color = CATEGORY_COLORS[category] || '#6b7280';
+  const Icon = categoryIcons[category] || MoreHorizontal;
+  const daysUntil = Math.ceil((parseISO(expense.nextDueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
   return (
-    <div className="px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-      <div className="flex items-start gap-3">
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-medium flex-shrink-0"
-          style={{ backgroundColor: CATEGORY_COLORS[expense.category] || '#6b7280' }}
-        >
-          {expense.category.charAt(0)}
-        </div>
+    <div className="row-interactive px-6 py-5 flex items-center gap-4 focus-ring animate-slide-up" tabIndex={0} style={{ animationDelay: `${index * 30}ms` }}>
+      <div className="category-pill relative flex-shrink-0" style={{ backgroundColor: color + '20' }}>
+        <div className="absolute inset-0 bg-accent-gradient-radial opacity-30" />
+        <Icon className="w-5 h-5 relative" strokeWidth={2.5} />
+      </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-gray-900 dark:text-white truncate">{expense.description}</p>
-            <span className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
-              Active
-            </span>
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{expense.category}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{patternDesc}</p>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-medium text-primary truncate">{expense.description}</p>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-accent-muted text-accent-primary border border-accent-border/30">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--accent-primary)' }} />
+            Active
+          </span>
         </div>
+        <p className="caption text-muted capitalize mt-1">{expense.category}</p>
+        <p className="caption text-muted mt-1 flex items-center gap-1">
+          <span>{patternDesc}</span>
+          <span className="text-muted/50">·</span>
+          <span className="flex items-center gap-1" style={{ color: daysUntil <= 3 ? 'var(--warning)' : 'var(--text-muted)' }}>
+            <Calendar className="w-3 h-3" strokeWidth={2} />
+            Due in {daysUntil}d ({nextDue})
+          </span>
+        </p>
+      </div>
 
-        <div className="flex flex-col items-end gap-2">
-          <span className="font-semibold text-gray-900 dark:text-white">{currencyInfo.symbol}{expense.amount.toFixed(2)}</span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400">Next: {nextDue}</span>
-            <button
-              onClick={() => onEdit(expense.id)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-              aria-label="Edit"
-            >
-              ✏️
-            </button>
-            <button
-              onClick={onDeleteConfirm}
-              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-              aria-label="Delete"
-            >
-              🗑️
-            </button>
-          </div>
+      <div className="flex flex-col items-end gap-3">
+        <span className="font-semibold text-primary mono">{currencyInfo.symbol}{expense.amount.toFixed(2)}</span>
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => onToggle(expense)}
-            className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            onClick={() => onEdit(expense.id)}
+            className="btn-icon btn-icon-interactive focus-ring p-2 text-muted hover:text-primary hover:bg-hover rounded-lg"
+            aria-label="Edit recurring expense"
           >
-            Deactivate
+            <Edit className="w-4 h-4" strokeWidth={2} />
+          </button>
+          <button
+            onClick={onDeleteConfirm}
+            className="btn-icon btn-icon-interactive focus-ring p-2 text-muted hover:text-negative hover:bg-negative/10 rounded-lg"
+            aria-label="Delete recurring expense"
+          >
+            <Trash2 className="w-4 h-4" strokeWidth={2} />
           </button>
         </div>
+        <button
+          onClick={() => onToggle(expense)}
+          className="btn btn-secondary btn-sm btn-shimmer focus-ring"
+        >
+          {expense.isActive ? (
+            <>
+              <ToggleLeft className="w-3 h-3 mr-1.5" strokeWidth={2} />
+              Deactivate
+            </>
+          ) : (
+            <>
+              <ToggleRight className="w-3 h-3 mr-1.5" strokeWidth={2} />
+              Activate
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
